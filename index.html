@@ -48,6 +48,7 @@
   --warn: #f0b456; --warn-soft: #3a2a10; color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 15px; line-height: 1.4; -webkit-tap-highlight-color: transparent; }
 .app { max-width: 440px; margin: 0 auto; padding-inline: 16px; padding-block: 16px 32px; display: flex; flex-direction: column; gap: 14px; }
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -126,29 +127,22 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       <button type="button" id="btn-short" data-side="short" aria-pressed="false">Short</button>
     </div>
 
-    <!-- Modo ROE -->
-    <div class="row2" data-show="roe">
+    <div class="row2">
       <div class="field">
         <label for="entry">Precio de entrada</label>
         <div class="inp"><input id="entry" type="number" inputmode="decimal" step="any" value="62450"></div>
       </div>
-      <div class="field">
+      <div class="field" data-show="roe">
         <label for="margin">Margen</label>
         <div class="inp"><input id="margin" type="number" inputmode="decimal" step="any" value="100"><span>USDT</span></div>
       </div>
-    </div>
-
-    <!-- Modo riesgo -->
-    <div class="row2" data-show="risk" hidden>
-      <div class="field">
-        <label for="entry-r">Precio de entrada</label>
-        <div class="inp"><input id="entry-r" type="number" inputmode="decimal" step="any" value="62450"></div>
-      </div>
-      <div class="field">
+      <div class="field" data-show="risk" hidden>
         <label for="risk">Riesgo máximo</label>
         <div class="inp"><input id="risk" type="number" inputmode="decimal" step="any" value="10"><span>USDT</span></div>
       </div>
     </div>
+
+    <!-- Solo modo riesgo -->
     <div class="row2" data-show="risk" hidden>
       <div class="field">
         <label for="sl-price-in">Stop loss</label>
@@ -234,7 +228,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
-  const ids = ["entry", "margin", "lev", "tp-roe", "sl-roe", "mmr", "fee", "entry-r", "risk", "sl-price-in", "tp-price-in"];
+  const ids = ["entry", "margin", "lev", "tp-roe", "sl-roe", "mmr", "fee", "risk", "sl-price-in", "tp-price-in"];
   let side = "long";
   let mode = "roe";
 
@@ -312,9 +306,9 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 
     try { localStorage.setItem("tpsl-calc", JSON.stringify(Object.assign({ side, mode }, Object.fromEntries(ids.map((k) => [k, $(k).value]))))); } catch (e) {}
 
-    let entry, tp, sl, qty, rr;
+    const entry = v("entry");
+    let tp, sl, qty, rr;
     if (mode === "roe") {
-      entry = v("entry");
       const margin = v("margin"), tpRoe = v("tp-roe"), slRoe = v("sl-roe");
       if (!(entry > 0) || !(lev >= 1) || !(margin > 0) || !(tpRoe >= 0) || !(slRoe > 0)) {
         return clear("Completá precio de entrada, margen, apalancamiento y los dos porcentajes con números positivos.");
@@ -322,7 +316,6 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
       ({ tp, sl, qty } = fromRoe({ side, entry, lev, margin, tpRoe, slRoe }));
       rr = tpRoe / slRoe;
     } else {
-      entry = v("entry-r");
       sl = v("sl-price-in");
       const risk = v("risk");
       const tpIn = v("tp-price-in");
@@ -375,10 +368,7 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
   $("btn-long").addEventListener("click", () => { side = "long"; render(); });
   $("btn-short").addEventListener("click", () => { side = "short"; render(); });
   $("tab-roe").addEventListener("click", () => { mode = "roe"; render(); });
-  $("tab-risk").addEventListener("click", () => {
-    if (mode !== "risk" && !$("entry-r").value) $("entry-r").value = $("entry").value;
-    mode = "risk"; render();
-  });
+  $("tab-risk").addEventListener("click", () => { mode = "risk"; render(); });
   $("chips").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-lev]");
     if (b) { $("lev").value = b.dataset.lev; render(); }

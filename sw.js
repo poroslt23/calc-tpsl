@@ -1,6 +1,6 @@
 // Service worker: la app funciona sin conexión.
 // La página se busca primero en la red (así ves siempre la última versión) y si no hay internet usa la copia guardada.
-const CACHE = "tpsl-v1";
+const CACHE = "tpsl-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
