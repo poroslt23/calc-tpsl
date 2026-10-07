@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141b26">
+<meta name="description" content="Calculadora de take profit y stop loss para futuros según apalancamiento y riesgo.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Calculadora TP/SL Futuros</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: una columna tipo app Android, selector de modo, inputs arriba, tarjetas TP/SL y resumen abajo, ancho máx. 440px */
+:root {
+  --bg: #eef1f5;
+  --surface: #ffffff;
+  --surface-2: #e3e8ef;
+  --fg: #141b26;
+  --muted: #5c6878;
+  --line: #d3dae4;
+  --accent: #2f5bd3;
+  --accent-fg: #ffffff;
+  --long: #0f8a5f;
+  --long-soft: #dcf2e8;
+  --short: #c8413a;
+  --short-soft: #f8e1df;
+  --warn: #a8650b;
+  --warn-soft: #fbefd9;
+  --font-ui: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-num: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131b; --surface: #171e29; --surface-2: #222b38; --fg: #e8edf4; --muted: #95a1b2;
+    --line: #2b3545; --accent: #6f93f2; --accent-fg: #0b1220;
+    --long: #3fcf95; --long-soft: #13352a; --short: #f07a72; --short-soft: #3d1d1b;
+    --warn: #f0b456; --warn-soft: #3a2a10; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131b; --surface: #171e29; --surface-2: #222b38; --fg: #e8edf4; --muted: #95a1b2;
+  --line: #2b3545; --accent: #6f93f2; --accent-fg: #0b1220;
+  --long: #3fcf95; --long-soft: #13352a; --short: #f07a72; --short-soft: #3d1d1b;
+  --warn: #f0b456; --warn-soft: #3a2a10; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 15px; line-height: 1.4; -webkit-tap-highlight-color: transparent; }
+.app { max-width: 440px; margin: 0 auto; padding-inline: 16px; padding-block: 16px 32px; display: flex; flex-direction: column; gap: 14px; }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+h1 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+header small { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+
+.tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--line); }
+.tabs button { border: 0; background: transparent; color: var(--muted); font: 600 14px var(--font-ui); padding: 10px 0 11px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+
+.side { display: grid; grid-template-columns: 1fr 1fr; background: var(--surface-2); border-radius: 12px; padding: 4px; gap: 4px; }
+.side button { border: 0; border-radius: 9px; padding: 11px 0; font: 600 15px var(--font-ui); background: transparent; color: var(--muted); cursor: pointer; }
+.side button[aria-pressed="true"][data-side="long"] { background: var(--long); color: #fff; }
+.side button[aria-pressed="true"][data-side="short"] { background: var(--short); color: #fff; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label, .lbl { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.row2 > * { min-width: 0; }
+.inp { display: flex; align-items: center; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; }
+.inp:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.inp input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--fg); font: 600 17px var(--font-num); padding: 11px 0; outline: none; font-variant-numeric: tabular-nums; }
+.inp span { color: var(--muted); font-size: 13px; font-weight: 600; margin-left: 6px; white-space: nowrap; }
+
+.lev-head { display: flex; justify-content: space-between; align-items: baseline; }
+.lev-val { font: 600 22px var(--font-num); color: var(--accent); }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 2px 0 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 999px; padding: 6px 12px; font: 600 13px var(--font-num); cursor: pointer; }
+.chips button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+
+.results { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.card { border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; border: 1px solid transparent; }
+.card.tp { background: var(--long-soft); border-color: color-mix(in srgb, var(--long) 30%, transparent); }
+.card.sl { background: var(--short-soft); border-color: color-mix(in srgb, var(--short) 30%, transparent); }
+.card .tag { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.card.tp .tag, .card.tp .pnl { color: var(--long); }
+.card.sl .tag, .card.sl .pnl { color: var(--short); }
+.card .price { font: 600 21px var(--font-num); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.card .sub { font: 400 12.5px var(--font-num); color: var(--muted); }
+.card .pnl { font: 600 15px var(--font-num); }
+.copy { margin-top: 6px; align-self: flex-start; border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 8px; padding: 5px 10px; font: 600 12px var(--font-ui); cursor: pointer; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); row-gap: 14px; }
+.stat { padding: 2px 10px; border-left: 1px solid var(--line); min-width: 0; }
+.stat:nth-child(3n+1) { border-left: 0; padding-left: 0; }
+.stat .v { font: 600 16px var(--font-num); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat .v.hl { color: var(--accent); }
+.stat .k { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+
+.alert { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; font-weight: 600; }
+details { color: var(--muted); font-size: 13.5px; }
+summary { cursor: pointer; font-weight: 600; }
+details .row2 { margin-top: 10px; }
+.note { color: var(--muted); font-size: 12.5px; margin: 0; }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>TP / SL Futuros</h1>
+    <small>USDT‑M</small>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Modo de cálculo">
+    <button type="button" role="tab" id="tab-roe" data-mode="roe" aria-selected="true">Por ROE</button>
+    <button type="button" role="tab" id="tab-risk" data-mode="risk" aria-selected="false">Por riesgo</button>
+  </nav>
+
+  <section class="panel" aria-label="Datos de la operación">
+    <div class="side" role="group" aria-label="Dirección">
+      <button type="button" id="btn-long" data-side="long" aria-pressed="true">Long</button>
+      <button type="button" id="btn-short" data-side="short" aria-pressed="false">Short</button>
+    </div>
+
+    <!-- Modo ROE -->
+    <div class="row2" data-show="roe">
+      <div class="field">
+        <label for="entry">Precio de entrada</label>
+        <div class="inp"><input id="entry" type="number" inputmode="decimal" step="any" value="62450"></div>
+      </div>
+      <div class="field">
+        <label for="margin">Margen</label>
+        <div class="inp"><input id="margin" type="number" inputmode="decimal" step="any" value="100"><span>USDT</span></div>
+      </div>
+    </div>
+
+    <!-- Modo riesgo -->
+    <div class="row2" data-show="risk" hidden>
+      <div class="field">
+        <label for="entry-r">Precio de entrada</label>
+        <div class="inp"><input id="entry-r" type="number" inputmode="decimal" step="any" value="62450"></div>
+      </div>
+      <div class="field">
+        <label for="risk">Riesgo máximo</label>
+        <div class="inp"><input id="risk" type="number" inputmode="decimal" step="any" value="10"><span>USDT</span></div>
+      </div>
+    </div>
+    <div class="row2" data-show="risk" hidden>
+      <div class="field">
+        <label for="sl-price-in">Stop loss</label>
+        <div class="inp"><input id="sl-price-in" type="number" inputmode="decimal" step="any" value="60900"></div>
+      </div>
+      <div class="field">
+        <label for="tp-price-in">Take profit</label>
+        <div class="inp"><input id="tp-price-in" type="number" inputmode="decimal" step="any" value="66000"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="lev-head"><span class="lbl">Apalancamiento</span><span class="lev-val" id="lev-out">10x</span></div>
+      <input id="lev" type="range" min="1" max="125" step="1" value="10" aria-label="Apalancamiento">
+      <div class="chips" id="chips">
+        <button type="button" data-lev="3">3x</button>
+        <button type="button" data-lev="5">5x</button>
+        <button type="button" data-lev="10">10x</button>
+        <button type="button" data-lev="20">20x</button>
+        <button type="button" data-lev="50">50x</button>
+        <button type="button" data-lev="100">100x</button>
+      </div>
+    </div>
+
+    <div class="row2" data-show="roe">
+      <div class="field">
+        <label for="tp-roe">Ganancia buscada</label>
+        <div class="inp"><input id="tp-roe" type="number" inputmode="decimal" step="any" value="30"><span>% ROE</span></div>
+      </div>
+      <div class="field">
+        <label for="sl-roe">Pérdida máxima</label>
+        <div class="inp"><input id="sl-roe" type="number" inputmode="decimal" step="any" value="15"><span>% ROE</span></div>
+      </div>
+    </div>
+
+    <details>
+      <summary>Ajustes de liquidación y comisiones</summary>
+      <div class="row2">
+        <div class="field">
+          <label for="mmr">Margen de mantenimiento</label>
+          <div class="inp"><input id="mmr" type="number" inputmode="decimal" step="any" value="0.5"><span>%</span></div>
+        </div>
+        <div class="field">
+          <label for="fee">Comisión por lado</label>
+          <div class="inp"><input id="fee" type="number" inputmode="decimal" step="any" value="0.05"><span>%</span></div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section class="results" aria-label="Resultados" aria-live="polite">
+    <div class="card tp">
+      <span class="tag">Take Profit</span>
+      <span class="price" id="tp-price">–</span>
+      <span class="sub" id="tp-move">–</span>
+      <span class="pnl" id="tp-pnl">–</span>
+      <button type="button" class="copy" data-copy="tp-price">Copiar precio</button>
+    </div>
+    <div class="card sl">
+      <span class="tag">Stop Loss</span>
+      <span class="price" id="sl-price">–</span>
+      <span class="sub" id="sl-move">–</span>
+      <span class="pnl" id="sl-pnl">–</span>
+      <button type="button" class="copy" data-copy="sl-price">Copiar precio</button>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Resumen">
+    <div class="stats">
+      <div class="stat"><div class="v" id="pos">–</div><div class="k">Posición USDT</div></div>
+      <div class="stat"><div class="v" id="mrg">–</div><div class="k">Margen</div></div>
+      <div class="stat"><div class="v" id="qty">–</div><div class="k">Cantidad</div></div>
+      <div class="stat"><div class="v" id="liq">–</div><div class="k">Liq. aprox.</div></div>
+      <div class="stat"><div class="v" id="rr">–</div><div class="k">Riesgo:Benef.</div></div>
+      <div class="stat"><div class="v hl" id="maxlev">–</div><div class="k">Apal. máx.</div></div>
+    </div>
+    <div class="alert" id="alert" hidden></div>
+    <p class="note" id="note-roe" data-show="roe">ROE = % sobre tu margen. El precio se mueve ROE ÷ apalancamiento, por eso con más apalancamiento el SL queda más cerca. Las ganancias y pérdidas ya descuentan comisiones de entrada y salida. Apal. máx. es el mayor apalancamiento con el que la liquidación queda después del SL.</p>
+    <p class="note" id="note-risk" data-show="risk" hidden>Ponés el SL donde lo marca el gráfico y cuánto querés perder si salta. La app calcula el tamaño de la posición. El apalancamiento solo cambia el margen que bloqueás y dónde queda la liquidación, no lo que perdés en el SL. La liquidación es estimada (margen aislado); revisá la de tu exchange.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const ids = ["entry", "margin", "lev", "tp-roe", "sl-roe", "mmr", "fee", "entry-r", "risk", "sl-price-in", "tp-price-in"];
+  let side = "long";
+  let mode = "roe";
+
+  try {
+    const saved = JSON.parse(localStorage.getItem("tpsl-calc") || "null");
+    if (saved) {
+      ids.forEach((k) => { if (saved[k] != null && $(k)) $(k).value = saved[k]; });
+      if (saved.side) side = saved.side;
+      if (saved.mode) mode = saved.mode;
+    }
+  } catch (e) {}
+
+  function decimals(p) {
+    if (p >= 1000) return 2;
+    if (p >= 10) return 3;
+    if (p >= 1) return 4;
+    if (p >= 0.01) return 5;
+    return 8;
+  }
+  const fmtP = (v, d) => v.toLocaleString("es-AR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmtU = (v) => (v >= 0 ? "+" : "−") + Math.abs(v).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " USDT";
+  const fmtN = (v, d) => v.toLocaleString("es-AR", { maximumFractionDigits: d });
+  const fmtPct = (v) => fmtN(v, 2) + "%";
+
+  // Lógica pura: dado entrada, TP, SL y cantidad, devuelve todo lo demás
+  function core({ side, entry, tp, sl, qty, lev, mmr, fee }) {
+    const dir = side === "long" ? 1 : -1;
+    const feeR = fee / 100, mmrR = mmr / 100;
+    const size = qty * entry;
+    const pnl = (exit) => qty * (exit - entry) * dir - feeR * (size + qty * exit);
+    const slDist = Math.abs(entry - sl) / entry;
+    const liq = entry * (1 - dir * (1 / lev - mmrR));
+    const liqDist = Math.abs(entry - liq) / entry;
+    const maxLev = Math.max(0, Math.min(125, Math.floor(1 / (slDist + mmrR) - 1e-9)));
+    return {
+      size, margin: size / lev, liq, liqDist, slDist, maxLev,
+      tpPnl: tp != null ? pnl(tp) : null,
+      slPnl: pnl(sl),
+      tpMove: tp != null ? Math.abs(tp - entry) / entry : null,
+      slBeyondLiq: dir === 1 ? sl <= liq : sl >= liq,
+    };
+  }
+
+  function fromRoe({ side, entry, lev, margin, tpRoe, slRoe }) {
+    const dir = side === "long" ? 1 : -1;
+    return {
+      tp: entry * (1 + dir * tpRoe / lev / 100),
+      sl: entry * (1 - dir * slRoe / lev / 100),
+      qty: (margin * lev) / entry,
+    };
+  }
+
+  function fromRisk({ side, entry, sl, risk, fee }) {
+    const feeR = fee / 100;
+    return { qty: risk / (Math.abs(entry - sl) + feeR * (entry + sl)) };
+  }
+
+  function clear(msg) {
+    ["tp-price", "sl-price", "tp-move", "sl-move", "tp-pnl", "sl-pnl", "pos", "mrg", "qty", "liq", "rr", "maxlev"].forEach((k) => ($(k).textContent = "–"));
+    $("alert").textContent = msg;
+    $("alert").hidden = false;
+  }
+
+  function render() {
+    const v = (k) => parseFloat(String($(k).value).replace(",", "."));
+    const lev = v("lev"), mmr = v("mmr") || 0, fee = v("fee") || 0;
+
+    $("lev-out").textContent = (lev || 0) + "x";
+    $("btn-long").setAttribute("aria-pressed", side === "long");
+    $("btn-short").setAttribute("aria-pressed", side === "short");
+    $("tab-roe").setAttribute("aria-selected", mode === "roe");
+    $("tab-risk").setAttribute("aria-selected", mode === "risk");
+    document.querySelectorAll("[data-show]").forEach((el) => (el.hidden = el.dataset.show !== mode));
+    document.querySelectorAll("#chips button").forEach((b) => b.setAttribute("aria-pressed", Number(b.dataset.lev) === lev));
+
+    try { localStorage.setItem("tpsl-calc", JSON.stringify(Object.assign({ side, mode }, Object.fromEntries(ids.map((k) => [k, $(k).value]))))); } catch (e) {}
+
+    let entry, tp, sl, qty, rr;
+    if (mode === "roe") {
+      entry = v("entry");
+      const margin = v("margin"), tpRoe = v("tp-roe"), slRoe = v("sl-roe");
+      if (!(entry > 0) || !(lev >= 1) || !(margin > 0) || !(tpRoe >= 0) || !(slRoe > 0)) {
+        return clear("Completá precio de entrada, margen, apalancamiento y los dos porcentajes con números positivos.");
+      }
+      ({ tp, sl, qty } = fromRoe({ side, entry, lev, margin, tpRoe, slRoe }));
+      rr = tpRoe / slRoe;
+    } else {
+      entry = v("entry-r");
+      sl = v("sl-price-in");
+      const risk = v("risk");
+      const tpIn = v("tp-price-in");
+      tp = tpIn > 0 ? tpIn : null;
+      if (!(entry > 0) || !(sl > 0) || !(risk > 0) || !(lev >= 1)) {
+        return clear("Completá precio de entrada, stop loss, riesgo y apalancamiento.");
+      }
+      if (side === "long" && sl >= entry) return clear("En un long el stop loss tiene que estar debajo de la entrada.");
+      if (side === "short" && sl <= entry) return clear("En un short el stop loss tiene que estar arriba de la entrada.");
+      if (tp != null && ((side === "long" && tp <= entry) || (side === "short" && tp >= entry))) {
+        return clear(side === "long" ? "En un long el take profit tiene que estar arriba de la entrada." : "En un short el take profit tiene que estar debajo de la entrada.");
+      }
+      ({ qty } = fromRisk({ side, entry, sl, risk, fee }));
+      rr = tp != null ? Math.abs(tp - entry) / Math.abs(entry - sl) : null;
+    }
+
+    const r = core({ side, entry, tp, sl, qty, lev, mmr, fee });
+    const d = decimals(entry);
+    const up = side === "long";
+
+    $("tp-price").textContent = tp != null ? fmtP(tp, d) : "–";
+    $("tp-price").dataset.raw = tp != null ? tp.toFixed(d) : "";
+    $("sl-price").textContent = fmtP(sl, d);
+    $("sl-price").dataset.raw = sl.toFixed(d);
+    $("tp-move").textContent = tp != null ? "Precio " + (up ? "+" : "−") + fmtPct(r.tpMove * 100) : "Cargá un TP";
+    $("sl-move").textContent = "Precio " + (up ? "−" : "+") + fmtPct(r.slDist * 100);
+    $("tp-pnl").textContent = r.tpPnl != null ? fmtU(r.tpPnl) : "–";
+    $("sl-pnl").textContent = fmtU(r.slPnl);
+    $("pos").textContent = fmtN(r.size, r.size >= 100 ? 0 : 2);
+    $("mrg").textContent = fmtN(r.margin, 2);
+    $("qty").textContent = fmtN(qty, qty >= 100 ? 2 : qty >= 1 ? 4 : 6);
+    $("liq").textContent = r.liq > 0 ? fmtP(r.liq, d) : "—";
+    $("rr").textContent = rr ? "1:" + fmtN(rr, 2) : "—";
+    $("maxlev").textContent = r.maxLev >= 1 ? r.maxLev + "x" : "—";
+
+    const alert = $("alert");
+    if (r.slBeyondLiq || lev > r.maxLev) {
+      alert.textContent = "Con " + lev + "x te liquidan antes de llegar al stop loss. " +
+        (r.maxLev >= 1 ? "Usá " + r.maxLev + "x o menos" + (mode === "roe" ? ", o bajá la pérdida máxima." : ".") : "Alejá el stop loss o bajá el apalancamiento.");
+      alert.hidden = false;
+    } else if (r.liqDist < r.slDist * 1.3) {
+      alert.textContent = "La liquidación queda muy cerca del stop loss. Si hay una mecha fuerte podés terminar liquidado. Conviene bajar el apalancamiento.";
+      alert.hidden = false;
+    } else {
+      alert.hidden = true;
+    }
+  }
+
+  ids.forEach((k) => $(k).addEventListener("input", render));
+  $("btn-long").addEventListener("click", () => { side = "long"; render(); });
+  $("btn-short").addEventListener("click", () => { side = "short"; render(); });
+  $("tab-roe").addEventListener("click", () => { mode = "roe"; render(); });
+  $("tab-risk").addEventListener("click", () => {
+    if (mode !== "risk" && !$("entry-r").value) $("entry-r").value = $("entry").value;
+    mode = "risk"; render();
+  });
+  $("chips").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-lev]");
+    if (b) { $("lev").value = b.dataset.lev; render(); }
+  });
+  document.querySelectorAll(".copy").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const el = $(btn.dataset.copy);
+      const txt = el.dataset.raw || el.textContent;
+      if (!txt || txt === "–") return;
+      const done = () => { btn.textContent = "Copiado"; setTimeout(() => (btn.textContent = "Copiar precio"), 1200); };
+      try { navigator.clipboard.writeText(txt).then(done, () => selectText(el)); }
+      catch (e) { selectText(el); }
+    });
+  });
+  function selectText(el) {
+    const range = document.createRange(); range.selectNodeContents(el);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(range);
+  }
+
+  render();
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
